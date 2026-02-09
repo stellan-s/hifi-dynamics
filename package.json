@@ -1,0 +1,14 @@
+{
+  "name": "hifi-dynamics",
+  "private": true,
+  "version": "0.1.0",
+  "description": "HiFi System Dynamics - Audio Quality Model",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "devDependencies": {
+    "vite": "^6.1.0"
+  }
+}

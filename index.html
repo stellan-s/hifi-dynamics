@@ -1,0 +1,1493 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HiFi System Dynamics</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: monospace;
+            background: #fff;
+            color: #000;
+            height: 100vh;
+            overflow: hidden;
+            display: flex;
+        }
+
+        #sidebar {
+            width: 320px;
+            border-right: 1px solid #000;
+            display: flex;
+            flex-direction: column;
+            overflow-y: auto;
+        }
+
+        #header {
+            padding: 20px;
+            border-bottom: 1px solid #000;
+        }
+
+        h1 {
+            font-size: 14px;
+            font-weight: 400;
+            margin-bottom: 4px;
+        }
+
+        #scenario-name {
+            font-size: 11px;
+            color: #666;
+            margin-bottom: 12px;
+        }
+
+        .stats-legend {
+            font-size: 9px;
+            color: #666;
+            padding: 8px;
+            background: #f9f9f9;
+            border: 1px solid #ddd;
+            margin-top: 8px;
+        }
+
+        .stats-legend-item {
+            display: inline-block;
+            margin-right: 12px;
+        }
+
+        .stats-legend-color {
+            display: inline-block;
+            width: 12px;
+            height: 2px;
+            margin-right: 4px;
+            vertical-align: middle;
+        }
+
+        .section {
+            border-bottom: 1px solid #000;
+            padding: 16px;
+        }
+
+        .section-title {
+            font-size: 10px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 12px;
+            font-weight: bold;
+        }
+
+        .var {
+            margin-bottom: 12px;
+        }
+
+        .var-label {
+            font-size: 11px;
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 4px;
+        }
+
+        .var-value {
+            color: #666;
+        }
+
+        input[type="range"] {
+            width: 100%;
+            height: 24px;
+            -webkit-appearance: none;
+            background: transparent;
+            position: relative;
+            cursor: pointer;
+        }
+
+        .slider-container {
+            position: relative;
+            margin-bottom: 8px;
+        }
+
+        .slider-bg {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 24px;
+            background: #fff;
+            border: 1px solid #000;
+            pointer-events: none;
+            overflow: hidden;
+        }
+
+        .distribution {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            height: 8px;
+            background: linear-gradient(to right, 
+                transparent 0%, 
+                transparent 20%, 
+                #eee 30%, 
+                #ccc 50%, 
+                #eee 70%, 
+                transparent 80%, 
+                transparent 100%
+            );
+        }
+
+        .stat-marker {
+            position: absolute;
+            top: 0;
+            bottom: 0;
+            width: 1px;
+            pointer-events: none;
+        }
+
+        .stat-marker.mean {
+            background: #00f;
+            opacity: 0.4;
+        }
+
+        .stat-marker.median {
+            background: #f00;
+            opacity: 0.4;
+        }
+
+        .stat-marker.mode {
+            background: #0a0;
+            opacity: 0.5;
+            width: 2px;
+        }
+
+        .stat-label {
+            position: absolute;
+            font-size: 7px;
+            color: #666;
+            white-space: nowrap;
+            pointer-events: none;
+        }
+
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 12px;
+            height: 22px;
+            background: #000;
+            cursor: pointer;
+            position: relative;
+            z-index: 10;
+        }
+
+        input[type="range"]::-moz-range-thumb {
+            width: 12px;
+            height: 22px;
+            background: #000;
+            border: none;
+            cursor: pointer;
+            position: relative;
+            z-index: 10;
+        }
+
+        select {
+            width: 100%;
+            padding: 6px;
+            border: 1px solid #000;
+            background: #fff;
+            font-family: monospace;
+            font-size: 11px;
+        }
+
+        .output {
+            background: #f5f5f5;
+            padding: 10px;
+            margin-bottom: 8px;
+            border: 1px solid #ccc;
+        }
+
+        .formula {
+            font-size: 9px;
+            color: #999;
+            margin-top: 4px;
+            font-style: italic;
+        }
+
+        #main {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+        }
+
+        #chart-container {
+            flex: 1;
+            position: relative;
+        }
+
+        canvas {
+            width: 100%;
+            height: 100%;
+            display: block;
+        }
+
+        #legend {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            background: rgba(255,255,255,0.95);
+            border: 1px solid #000;
+            padding: 12px;
+            font-size: 10px;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 6px;
+        }
+
+        .legend-color {
+            width: 20px;
+            height: 2px;
+        }
+
+        .legend-value {
+            margin-left: auto;
+            font-weight: bold;
+        }
+
+        #overall {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background: rgba(255,255,255,0.95);
+            border: 1px solid #000;
+            padding: 16px;
+            text-align: right;
+        }
+
+        #overall-label {
+            font-size: 10px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 8px;
+        }
+
+        #overall-value {
+            font-size: 48px;
+            font-weight: bold;
+        }
+
+        #controls {
+            border-top: 1px solid #000;
+            padding: 12px 20px;
+            display: flex;
+            gap: 12px;
+            font-size: 10px;
+        }
+
+        button {
+            padding: 8px 16px;
+            border: 1px solid #000;
+            background: #fff;
+            font-family: monospace;
+            font-size: 11px;
+            cursor: pointer;
+        }
+
+        button:hover {
+            background: #f5f5f5;
+        }
+
+        button.active {
+            background: #000;
+            color: #fff;
+        }
+    </style>
+</head>
+<body>
+    <div id="sidebar">
+        <div id="header">
+            <h1>HIFI SYSTEM DYNAMICS</h1>
+            <div id="scenario-name">Audio Quality Model v1.0</div>
+            <div class="stats-legend">
+                <div class="stats-legend-item">
+                    <span class="stats-legend-color" style="background: #0a0;"></span>
+                    <span>Mode</span>
+                </div>
+                <div class="stats-legend-item">
+                    <span class="stats-legend-color" style="background: #f00; opacity: 0.4;"></span>
+                    <span>Median</span>
+                </div>
+                <div class="stats-legend-item">
+                    <span class="stats-legend-color" style="background: #00f; opacity: 0.4;"></span>
+                    <span>Mean</span>
+                </div>
+                <div class="stats-legend-item">
+                    <span style="color: #999;">Gray area: Distribution</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="section">
+            <div class="section-title">Source Material</div>
+            
+            <div class="var">
+                <div class="var-label">
+                    <span>Source Quality</span>
+                    <span class="var-value" data-var="sourceQuality">70</span>
+                </div>
+                <select data-var="sourceType" data-select>
+                    <option value="vinyl">Vinyl (Analog)</option>
+                    <option value="cd" selected>CD (16/44.1)</option>
+                    <option value="hires">Hi-Res Digital (24/96+)</option>
+                    <option value="streaming">Streaming (Compressed)</option>
+                </select>
+            </div>
+
+            <div class="var">
+                <div class="var-label">
+                    <span>Recording Quality</span>
+                    <span class="var-value" data-var="recordingQuality">75</span>
+                </div>
+                <input type="range" data-var="recordingQuality" min="0" max="100" value="75">
+            </div>
+        </div>
+
+        <div class="section">
+            <div class="section-title">Analog Chain (Vinyl)</div>
+            
+            <div class="var">
+                <div class="var-label">
+                    <span>Turntable Quality</span>
+                    <span class="var-value" data-var="turntableQuality">60</span>
+                </div>
+                <input type="range" data-var="turntableQuality" min="0" max="100" value="60">
+            </div>
+
+            <div class="var">
+                <div class="var-label">
+                    <span>Platter Speed Stability</span>
+                    <span class="var-value" data-var="speedStability">70</span>
+                </div>
+                <input type="range" data-var="speedStability" min="0" max="100" value="70">
+            </div>
+
+            <div class="var">
+                <div class="var-label">
+                    <span>Record Condition</span>
+                    <span class="var-value" data-var="recordCondition">75</span>
+                </div>
+                <input type="range" data-var="recordCondition" min="0" max="100" value="75">
+            </div>
+
+            <div class="var">
+                <div class="var-label">
+                    <span>Cartridge Type</span>
+                </div>
+                <select data-var="cartridgeType" data-select>
+                    <option value="mm" selected>MM (Moving Magnet)</option>
+                    <option value="mc">MC (Moving Coil)</option>
+                </select>
+            </div>
+
+            <div class="var">
+                <div class="var-label">
+                    <span>Stylus Condition</span>
+                    <span class="var-value" data-var="stylusCondition">80</span>
+                </div>
+                <input type="range" data-var="stylusCondition" min="0" max="100" value="80">
+            </div>
+
+            <div class="var">
+                <div class="var-label">
+                    <span>VTF (Tracking Force)</span>
+                    <span class="var-value" data-var="vtf">70</span>
+                </div>
+                <input type="range" data-var="vtf" min="0" max="100" value="70">
+            </div>
+
+            <div class="var">
+                <div class="var-label">
+                    <span>Anti-Skating</span>
+                    <span class="var-value" data-var="antiSkating">65</span>
+                </div>
+                <input type="range" data-var="antiSkating" min="0" max="100" value="65">
+            </div>
+
+            <div class="var">
+                <div class="var-label">
+                    <span>Azimuth Alignment</span>
+                    <span class="var-value" data-var="azimuth">60</span>
+                </div>
+                <input type="range" data-var="azimuth" min="0" max="100" value="60">
+            </div>
+
+            <div class="var">
+                <div class="var-label">
+                    <span>RIAA Preamp Quality</span>
+                    <span class="var-value" data-var="riaaQuality">70</span>
+                </div>
+                <input type="range" data-var="riaaQuality" min="0" max="100" value="70">
+            </div>
+        </div>
+
+        <div class="section">
+            <div class="section-title">Digital Chain</div>
+            
+            <div class="var">
+                <div class="var-label">
+                    <span>DAC Quality</span>
+                    <span class="var-value" data-var="dacQuality">75</span>
+                </div>
+                <input type="range" data-var="dacQuality" min="0" max="100" value="75">
+            </div>
+
+            <div class="var">
+                <div class="var-label">
+                    <span>Jitter Level</span>
+                    <span class="var-value" data-var="jitter">70</span>
+                </div>
+                <input type="range" data-var="jitter" min="0" max="100" value="70">
+            </div>
+
+            <div class="var">
+                <div class="var-label">
+                    <span>Master Clock Quality</span>
+                    <span class="var-value" data-var="clockQuality">65</span>
+                </div>
+                <input type="range" data-var="clockQuality" min="0" max="100" value="65">
+            </div>
+
+            <div class="var">
+                <div class="var-label">
+                    <span>Digital Filter Type</span>
+                </div>
+                <select data-var="digitalFilter" data-select>
+                    <option value="brickwall" selected>Brick Wall</option>
+                    <option value="slowrolloff">Slow Roll-off</option>
+                    <option value="minimum">Minimum Phase</option>
+                </select>
+            </div>
+
+            <div class="var">
+                <div class="var-label">
+                    <span>USB/Interface Quality</span>
+                    <span class="var-value" data-var="interfaceQuality">70</span>
+                </div>
+                <input type="range" data-var="interfaceQuality" min="0" max="100" value="70">
+            </div>
+        </div>
+
+        <div class="section">
+            <div class="section-title">Amplification</div>
+            
+            <div class="var">
+                <div class="var-label">
+                    <span>Amplifier Quality</span>
+                    <span class="var-value" data-var="ampQuality">70</span>
+                </div>
+                <input type="range" data-var="ampQuality" min="0" max="100" value="70">
+            </div>
+
+            <div class="var">
+                <div class="var-label">
+                    <span>Power Supply Quality</span>
+                    <span class="var-value" data-var="powerSupply">65</span>
+                </div>
+                <input type="range" data-var="powerSupply" min="0" max="100" value="65">
+            </div>
+        </div>
+
+        <div class="section">
+            <div class="section-title">Cables & Interconnects</div>
+            
+            <div class="var">
+                <div class="var-label">
+                    <span>Interconnect Quality</span>
+                    <span class="var-value" data-var="interconnectQuality">60</span>
+                </div>
+                <input type="range" data-var="interconnectQuality" min="0" max="100" value="60">
+            </div>
+
+            <div class="var">
+                <div class="var-label">
+                    <span>Speaker Cable Quality</span>
+                    <span class="var-value" data-var="speakerCableQuality">55</span>
+                </div>
+                <input type="range" data-var="speakerCableQuality" min="0" max="100" value="55">
+            </div>
+
+            <div class="var">
+                <div class="var-label">
+                    <span>Cable Length (Shorter Better)</span>
+                    <span class="var-value" data-var="cableLength">70</span>
+                </div>
+                <input type="range" data-var="cableLength" min="0" max="100" value="70">
+            </div>
+
+            <div class="var">
+                <div class="var-label">
+                    <span>Shielding Quality</span>
+                    <span class="var-value" data-var="shielding">65</span>
+                </div>
+                <input type="range" data-var="shielding" min="0" max="100" value="65">
+            </div>
+
+            <div class="var">
+                <div class="var-label">
+                    <span>Power Cable Quality</span>
+                    <span class="var-value" data-var="powerCable">60</span>
+                </div>
+                <input type="range" data-var="powerCable" min="0" max="100" value="60">
+            </div>
+        </div>
+
+        <div class="section">
+            <div class="section-title">Speakers</div>
+            
+            <div class="var">
+                <div class="var-label">
+                    <span>Overall Speaker Quality</span>
+                    <span class="var-value" data-var="speakerQuality">75</span>
+                </div>
+                <input type="range" data-var="speakerQuality" min="0" max="100" value="75">
+            </div>
+
+            <div class="var">
+                <div class="var-label">
+                    <span>Tweeter Quality</span>
+                    <span class="var-value" data-var="tweeterQuality">70</span>
+                </div>
+                <input type="range" data-var="tweeterQuality" min="0" max="100" value="70">
+            </div>
+
+            <div class="var">
+                <div class="var-label">
+                    <span>Woofer Quality</span>
+                    <span class="var-value" data-var="wooferQuality">75</span>
+                </div>
+                <input type="range" data-var="wooferQuality" min="0" max="100" value="75">
+            </div>
+
+            <div class="var">
+                <div class="var-label">
+                    <span>Crossover Quality</span>
+                    <span class="var-value" data-var="crossoverQuality">65</span>
+                </div>
+                <input type="range" data-var="crossoverQuality" min="0" max="100" value="65">
+            </div>
+
+            <div class="var">
+                <div class="var-label">
+                    <span>Cabinet Design</span>
+                </div>
+                <select data-var="cabinetType" data-select>
+                    <option value="sealed">Sealed/Acoustic Suspension</option>
+                    <option value="ported" selected>Bass Reflex/Ported</option>
+                    <option value="transmission">Transmission Line</option>
+                </select>
+            </div>
+
+            <div class="var">
+                <div class="var-label">
+                    <span>Cabinet Bracing/Resonance</span>
+                    <span class="var-value" data-var="cabinetBracing">70</span>
+                </div>
+                <input type="range" data-var="cabinetBracing" min="0" max="100" value="70">
+            </div>
+
+            <div class="var">
+                <div class="var-label">
+                    <span>Driver Break-in</span>
+                    <span class="var-value" data-var="driverBreakIn">60</span>
+                </div>
+                <input type="range" data-var="driverBreakIn" min="0" max="100" value="60">
+            </div>
+
+            <div class="var">
+                <div class="var-label">
+                    <span>Speaker Stands Quality</span>
+                    <span class="var-value" data-var="standsQuality">50</span>
+                </div>
+                <input type="range" data-var="standsQuality" min="0" max="100" value="50">
+            </div>
+
+            <div class="var">
+                <div class="var-label">
+                    <span>Speaker Sensitivity (dB/W/m)</span>
+                    <span class="var-value" data-var="sensitivity">87</span>
+                </div>
+                <input type="range" data-var="sensitivity" min="80" max="100" value="87">
+            </div>
+
+            <div class="var">
+                <div class="var-label">
+                    <span>Impedance Match</span>
+                    <span class="var-value" data-var="impedanceMatch">75</span>
+                </div>
+                <input type="range" data-var="impedanceMatch" min="0" max="100" value="75">
+            </div>
+
+            <div class="var">
+                <div class="var-label">
+                    <span>Toe-in Angle (degrees)</span>
+                    <span class="var-value" data-var="toeIn">30</span>
+                </div>
+                <input type="range" data-var="toeIn" min="0" max="90" value="30">
+            </div>
+
+            <div class="var">
+                <div class="var-label">
+                    <span>Speaker Rake Angle</span>
+                    <span class="var-value" data-var="rakeAngle">50</span>
+                </div>
+                <input type="range" data-var="rakeAngle" min="0" max="100" value="50">
+            </div>
+        </div>
+
+        <div class="section">
+            <div class="section-title">Room Acoustics</div>
+            
+            <div class="var">
+                <div class="var-label">
+                    <span>Room Size (m³)</span>
+                    <span class="var-value" data-var="roomSize">45</span>
+                </div>
+                <input type="range" data-var="roomSize" min="20" max="100" value="45">
+            </div>
+
+            <div class="var">
+                <div class="var-label">
+                    <span>Room Dimensions Ratio</span>
+                    <span class="var-value" data-var="dimensionRatio">60</span>
+                </div>
+                <input type="range" data-var="dimensionRatio" min="0" max="100" value="60">
+            </div>
+
+            <div class="var">
+                <div class="var-label">
+                    <span>Ceiling Height</span>
+                    <span class="var-value" data-var="ceilingHeight">70</span>
+                </div>
+                <input type="range" data-var="ceilingHeight" min="0" max="100" value="70">
+            </div>
+
+            <div class="var">
+                <div class="var-label">
+                    <span>Acoustic Damping</span>
+                    <span class="var-value" data-var="damping">40</span>
+                </div>
+                <input type="range" data-var="damping" min="0" max="100" value="40">
+            </div>
+
+            <div class="var">
+                <div class="var-label">
+                    <span>Bass Traps</span>
+                    <span class="var-value" data-var="bassTraps">30</span>
+                </div>
+                <input type="range" data-var="bassTraps" min="0" max="100" value="30">
+            </div>
+
+            <div class="var">
+                <div class="var-label">
+                    <span>First Reflection Treatment</span>
+                    <span class="var-value" data-var="firstReflections">35</span>
+                </div>
+                <input type="range" data-var="firstReflections" min="0" max="100" value="35">
+            </div>
+
+            <div class="var">
+                <div class="var-label">
+                    <span>Diffusion</span>
+                    <span class="var-value" data-var="diffusion">25</span>
+                </div>
+                <input type="range" data-var="diffusion" min="0" max="100" value="25">
+            </div>
+
+            <div class="var">
+                <div class="var-label">
+                    <span>Room Material Quality</span>
+                    <span class="var-value" data-var="materialQuality">60</span>
+                </div>
+                <input type="range" data-var="materialQuality" min="0" max="100" value="60">
+            </div>
+
+            <div class="var">
+                <div class="var-label">
+                    <span>Floor Type</span>
+                </div>
+                <select data-var="floorType" data-select>
+                    <option value="carpet">Carpet</option>
+                    <option value="hardwood" selected>Hardwood</option>
+                    <option value="concrete">Concrete</option>
+                </select>
+            </div>
+
+            <div class="var">
+                <div class="var-label">
+                    <span>Furniture as Diffusion</span>
+                    <span class="var-value" data-var="furniture">50</span>
+                </div>
+                <input type="range" data-var="furniture" min="0" max="100" value="50">
+            </div>
+
+            <div class="var">
+                <div class="var-label">
+                    <span>Speaker Placement</span>
+                    <span class="var-value" data-var="placement">70</span>
+                </div>
+                <input type="range" data-var="placement" min="0" max="100" value="70">
+            </div>
+
+            <div class="var">
+                <div class="var-label">
+                    <span>Distance to Front Wall</span>
+                    <span class="var-value" data-var="frontWallDistance">65</span>
+                </div>
+                <input type="range" data-var="frontWallDistance" min="0" max="100" value="65">
+            </div>
+
+            <div class="var">
+                <div class="var-label">
+                    <span>Distance to Side Walls</span>
+                    <span class="var-value" data-var="sideWallDistance">70</span>
+                </div>
+                <input type="range" data-var="sideWallDistance" min="0" max="100" value="70">
+            </div>
+
+            <div class="var">
+                <div class="var-label">
+                    <span>Reverb Time (RT60)</span>
+                    <span class="var-value" data-var="reverbTime">50</span>
+                </div>
+                <input type="range" data-var="reverbTime" min="0" max="100" value="50">
+            </div>
+        </div>
+
+        <div class="section">
+            <div class="section-title">Listener & Environment</div>
+            
+            <div class="var">
+                <div class="var-label">
+                    <span>Listening Position</span>
+                    <span class="var-value" data-var="listeningPosition">75</span>
+                </div>
+                <input type="range" data-var="listeningPosition" min="0" max="100" value="75">
+            </div>
+
+            <div class="var">
+                <div class="var-label">
+                    <span>Volume Level</span>
+                    <span class="var-value" data-var="volumeLevel">70</span>
+                </div>
+                <input type="range" data-var="volumeLevel" min="0" max="100" value="70">
+            </div>
+
+            <div class="var">
+                <div class="var-label">
+                    <span>Listener Preference Match</span>
+                    <span class="var-value" data-var="preference">70</span>
+                </div>
+                <input type="range" data-var="preference" min="0" max="100" value="70">
+            </div>
+
+            <div class="var">
+                <div class="var-label">
+                    <span>Musical Familiarity</span>
+                    <span class="var-value" data-var="familiarity">60</span>
+                </div>
+                <input type="range" data-var="familiarity" min="0" max="100" value="60">
+            </div>
+
+            <div class="var">
+                <div class="var-label">
+                    <span>Listener Experience/Training</span>
+                    <span class="var-value" data-var="listenerExperience">65</span>
+                </div>
+                <input type="range" data-var="listenerExperience" min="0" max="100" value="65">
+            </div>
+
+            <div class="var">
+                <div class="var-label">
+                    <span>Hearing Acuity (Age Factor)</span>
+                    <span class="var-value" data-var="hearingAcuity">80</span>
+                </div>
+                <input type="range" data-var="hearingAcuity" min="0" max="100" value="80">
+            </div>
+
+            <div class="var">
+                <div class="var-label">
+                    <span>Listening Mode</span>
+                </div>
+                <select data-var="listeningMode" data-select>
+                    <option value="critical" selected>Critical Listening</option>
+                    <option value="relaxed">Relaxed/Background</option>
+                    <option value="analytical">Analytical</option>
+                </select>
+            </div>
+
+            <div class="var">
+                <div class="var-label">
+                    <span>Expectation Bias</span>
+                    <span class="var-value" data-var="expectationBias">50</span>
+                </div>
+                <input type="range" data-var="expectationBias" min="0" max="100" value="50">
+            </div>
+
+            <div class="var">
+                <div class="var-label">
+                    <span>Mood/Emotional State</span>
+                    <span class="var-value" data-var="mood">70</span>
+                </div>
+                <input type="range" data-var="mood" min="0" max="100" value="70">
+            </div>
+
+            <div class="var">
+                <div class="var-label">
+                    <span>Ambient Noise Floor</span>
+                    <span class="var-value" data-var="noiseFloor">75</span>
+                </div>
+                <input type="range" data-var="noiseFloor" min="0" max="100" value="75">
+            </div>
+
+            <div class="var">
+                <div class="var-label">
+                    <span>Room Temperature Comfort</span>
+                    <span class="var-value" data-var="temperature">70</span>
+                </div>
+                <input type="range" data-var="temperature" min="0" max="100" value="70">
+            </div>
+
+            <div class="var">
+                <div class="var-label">
+                    <span>Humidity (Affects Speakers)</span>
+                    <span class="var-value" data-var="humidity">60</span>
+                </div>
+                <input type="range" data-var="humidity" min="0" max="100" value="60">
+            </div>
+
+            <div class="var">
+                <div class="var-label">
+                    <span>Seating Comfort</span>
+                    <span class="var-value" data-var="seatingComfort">75</span>
+                </div>
+                <input type="range" data-var="seatingComfort" min="0" max="100" value="75">
+            </div>
+        </div>
+
+        <div class="section">
+            <div class="section-title">Calculated Outputs</div>
+            
+            <div class="var output">
+                <div class="var-label">
+                    <span>Signal Quality</span>
+                    <span class="var-value" data-output="signalQuality">72</span>
+                </div>
+                <div class="formula">Source + Electronics chain quality</div>
+            </div>
+
+            <div class="var output">
+                <div class="var-label">
+                    <span>Acoustic Quality</span>
+                    <span class="var-value" data-output="acousticQuality">65</span>
+                </div>
+                <div class="formula">Room + Speaker placement + Damping</div>
+            </div>
+
+            <div class="var output">
+                <div class="var-label">
+                    <span>Imaging</span>
+                    <span class="var-value" data-output="imaging">68</span>
+                </div>
+                <div class="formula">Placement + Toe-in + Room</div>
+            </div>
+
+            <div class="var output">
+                <div class="var-label">
+                    <span>Detail Retrieval</span>
+                    <span class="var-value" data-output="detail">70</span>
+                </div>
+                <div class="formula">Source + DAC + Speaker quality</div>
+            </div>
+        </div>
+    </div>
+
+    <div id="main">
+        <div id="chart-container">
+            <canvas id="chart"></canvas>
+            
+            <div id="legend">
+                <div class="legend-item">
+                    <div class="legend-color" style="background: #f00;"></div>
+                    <span>Signal Quality</span>
+                    <span class="legend-value" data-legend="signalQuality">72</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background: #00f;"></div>
+                    <span>Acoustic Quality</span>
+                    <span class="legend-value" data-legend="acousticQuality">65</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background: #0a0;"></div>
+                    <span>Imaging</span>
+                    <span class="legend-value" data-legend="imaging">68</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background: #f90;"></div>
+                    <span>Detail</span>
+                    <span class="legend-value" data-legend="detail">70</span>
+                </div>
+            </div>
+
+            <div id="overall">
+                <div id="overall-label">Overall Experience</div>
+                <div id="overall-value">69</div>
+            </div>
+        </div>
+
+        <div id="controls">
+            <button id="play-btn" class="active">RUNNING</button>
+            <button id="reset-btn">RESET</button>
+            <span style="color: #666;">Component degradation enabled</span>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('chart');
+        const ctx = canvas.getContext('2d');
+
+        let w, h;
+        function resize() {
+            w = canvas.width = canvas.offsetWidth * 2;
+            h = canvas.height = canvas.offsetHeight * 2;
+            ctx.scale(2, 2);
+        }
+        resize();
+        window.addEventListener('resize', resize);
+
+        // State
+        const state = {
+            // Source
+            sourceType: 'cd',
+            sourceQuality: 70,
+            recordingQuality: 75,
+            
+            // Analog
+            turntableQuality: 60,
+            speedStability: 70,
+            recordCondition: 75,
+            cartridgeType: 'mm',
+            stylusCondition: 80,
+            vtf: 70,
+            antiSkating: 65,
+            azimuth: 60,
+            riaaQuality: 70,
+            
+            // Digital
+            dacQuality: 75,
+            jitter: 70,
+            clockQuality: 65,
+            digitalFilter: 'brickwall',
+            interfaceQuality: 70,
+            
+            // Cables
+            interconnectQuality: 60,
+            speakerCableQuality: 55,
+            cableLength: 70,
+            shielding: 65,
+            powerCable: 60,
+            
+            // Amp
+            ampQuality: 70,
+            powerSupply: 65,
+            
+            // Speakers
+            speakerQuality: 75,
+            tweeterQuality: 70,
+            wooferQuality: 75,
+            crossoverQuality: 65,
+            cabinetType: 'ported',
+            cabinetBracing: 70,
+            driverBreakIn: 60,
+            standsQuality: 50,
+            sensitivity: 87,
+            impedanceMatch: 75,
+            toeIn: 30,
+            rakeAngle: 50,
+            
+            // Room
+            roomSize: 45,
+            dimensionRatio: 60,
+            ceilingHeight: 70,
+            damping: 40,
+            bassTraps: 30,
+            firstReflections: 35,
+            diffusion: 25,
+            materialQuality: 60,
+            floorType: 'hardwood',
+            furniture: 50,
+            placement: 70,
+            frontWallDistance: 65,
+            sideWallDistance: 70,
+            reverbTime: 50,
+            
+            // Listener & Environment
+            listeningPosition: 75,
+            volumeLevel: 70,
+            preference: 70,
+            familiarity: 60,
+            listenerExperience: 65,
+            hearingAcuity: 80,
+            listeningMode: 'critical',
+            expectationBias: 50,
+            mood: 70,
+            noiseFloor: 75,
+            temperature: 60,
+            humidity: 60,
+            seatingComfort: 75,
+            
+            // Outputs
+            signalQuality: 72,
+            acousticQuality: 65,
+            imaging: 68,
+            detail: 70,
+            overall: 69
+        };
+
+        const sourceValues = {
+            vinyl: 65,
+            cd: 70,
+            hires: 85,
+            streaming: 55
+        };
+
+        const cartridgeBonus = {
+            mm: 0,
+            mc: 10
+        };
+
+        // Community statistics (simulated data from 5,234 users)
+        const communityStats = {
+            recordingQuality: { mean: 68, median: 72, mode: 70, min: 20, max: 95 },
+            turntableQuality: { mean: 55, median: 58, mode: 60, min: 15, max: 98 },
+            speedStability: { mean: 65, median: 68, mode: 70, min: 30, max: 95 },
+            recordCondition: { mean: 70, median: 75, mode: 80, min: 20, max: 100 },
+            stylusCondition: { mean: 72, median: 78, mode: 80, min: 10, max: 100 },
+            vtf: { mean: 68, median: 70, mode: 70, min: 40, max: 95 },
+            antiSkating: { mean: 63, median: 65, mode: 65, min: 30, max: 90 },
+            azimuth: { mean: 58, median: 60, mode: 60, min: 20, max: 95 },
+            riaaQuality: { mean: 65, median: 68, mode: 70, min: 25, max: 98 },
+            dacQuality: { mean: 70, median: 73, mode: 75, min: 30, max: 98 },
+            jitter: { mean: 68, median: 70, mode: 70, min: 30, max: 95 },
+            clockQuality: { mean: 62, median: 65, mode: 65, min: 25, max: 95 },
+            interfaceQuality: { mean: 68, median: 70, mode: 70, min: 30, max: 95 },
+            interconnectQuality: { mean: 58, median: 60, mode: 60, min: 20, max: 90 },
+            speakerCableQuality: { mean: 53, median: 55, mode: 55, min: 20, max: 90 },
+            cableLength: { mean: 68, median: 70, mode: 70, min: 30, max: 95 },
+            shielding: { mean: 63, median: 65, mode: 65, min: 30, max: 90 },
+            powerCable: { mean: 58, median: 60, mode: 60, min: 25, max: 90 },
+            ampQuality: { mean: 68, median: 70, mode: 70, min: 25, max: 98 },
+            powerSupply: { mean: 63, median: 65, mode: 65, min: 30, max: 95 },
+            speakerQuality: { mean: 72, median: 75, mode: 75, min: 30, max: 98 },
+            tweeterQuality: { mean: 68, median: 70, mode: 70, min: 30, max: 95 },
+            wooferQuality: { mean: 72, median: 75, mode: 75, min: 30, max: 95 },
+            crossoverQuality: { mean: 63, median: 65, mode: 65, min: 25, max: 90 },
+            cabinetBracing: { mean: 68, median: 70, mode: 70, min: 30, max: 95 },
+            driverBreakIn: { mean: 58, median: 60, mode: 60, min: 20, max: 95 },
+            standsQuality: { mean: 48, median: 50, mode: 50, min: 15, max: 85 },
+            sensitivity: { mean: 86, median: 87, mode: 87, min: 82, max: 96 },
+            impedanceMatch: { mean: 73, median: 75, mode: 75, min: 40, max: 95 },
+            toeIn: { mean: 28, median: 30, mode: 30, min: 0, max: 60 },
+            rakeAngle: { mean: 48, median: 50, mode: 50, min: 20, max: 80 },
+            roomSize: { mean: 48, median: 50, mode: 45, min: 25, max: 85 },
+            dimensionRatio: { mean: 58, median: 60, mode: 60, min: 30, max: 90 },
+            ceilingHeight: { mean: 68, median: 70, mode: 70, min: 40, max: 95 },
+            damping: { mean: 38, median: 40, mode: 40, min: 10, max: 80 },
+            bassTraps: { mean: 28, median: 30, mode: 30, min: 0, max: 70 },
+            firstReflections: { mean: 33, median: 35, mode: 35, min: 0, max: 75 },
+            diffusion: { mean: 23, median: 25, mode: 25, min: 0, max: 65 },
+            materialQuality: { mean: 58, median: 60, mode: 60, min: 25, max: 90 },
+            furniture: { mean: 48, median: 50, mode: 50, min: 20, max: 80 },
+            placement: { mean: 68, median: 70, mode: 70, min: 30, max: 95 },
+            frontWallDistance: { mean: 63, median: 65, mode: 65, min: 30, max: 90 },
+            sideWallDistance: { mean: 68, median: 70, mode: 70, min: 35, max: 95 },
+            reverbTime: { mean: 48, median: 50, mode: 50, min: 20, max: 80 },
+            listeningPosition: { mean: 73, median: 75, mode: 75, min: 40, max: 95 },
+            volumeLevel: { mean: 68, median: 70, mode: 70, min: 40, max: 95 },
+            preference: { mean: 68, median: 70, mode: 70, min: 30, max: 95 },
+            familiarity: { mean: 58, median: 60, mode: 60, min: 20, max: 90 },
+            listenerExperience: { mean: 63, median: 65, mode: 65, min: 25, max: 95 },
+            hearingAcuity: { mean: 75, median: 78, mode: 80, min: 40, max: 100 },
+            expectationBias: { mean: 48, median: 50, mode: 50, min: 20, max: 80 },
+            mood: { mean: 68, median: 70, mode: 70, min: 30, max: 95 },
+            noiseFloor: { mean: 73, median: 75, mode: 75, min: 40, max: 95 },
+            temperature: { mean: 58, median: 60, mode: 60, min: 30, max: 90 },
+            humidity: { mean: 58, median: 60, mode: 60, min: 30, max: 90 },
+            seatingComfort: { mean: 73, median: 75, mode: 75, min: 40, max: 95 }
+        };
+
+        const history = {
+            signalQuality: [],
+            acousticQuality: [],
+            imaging: [],
+            detail: []
+        };
+
+        const MAX = 300;
+        const colors = {
+            signalQuality: '#f00',
+            acousticQuality: '#00f',
+            imaging: '#0a0',
+            detail: '#f90'
+        };
+
+        let playing = true;
+
+        const digitalFilterBonus = {
+            brickwall: 0,
+            slowrolloff: 5,
+            minimum: 3
+        };
+
+        const cabinetBonus = {
+            sealed: 5,
+            ported: 0,
+            transmission: 8
+        };
+
+        const floorBonus = {
+            carpet: 5,
+            hardwood: 0,
+            concrete: -5
+        };
+
+        const listeningModeBonus = {
+            critical: 10,
+            relaxed: -5,
+            analytical: 5
+        };
+
+        function calculate() {
+            // Source quality depends on type and recording
+            const baseSource = sourceValues[state.sourceType];
+            
+            // Analog chain (only matters for vinyl)
+            let analogBonus = 0;
+            if (state.sourceType === 'vinyl') {
+                const alignmentQuality = (state.vtf + state.antiSkating + state.azimuth) / 3;
+                analogBonus = (
+                    state.turntableQuality * 0.25 +
+                    state.speedStability * 0.15 +
+                    state.recordCondition * 0.2 +
+                    state.stylusCondition * 0.15 +
+                    state.riaaQuality * 0.15 +
+                    alignmentQuality * 0.1 +
+                    cartridgeBonus[state.cartridgeType]
+                ) * 0.35;
+            }
+            
+            // Digital chain (matters for digital sources)
+            let digitalBonus = 0;
+            if (state.sourceType !== 'vinyl') {
+                digitalBonus = (
+                    state.dacQuality * 0.4 +
+                    (100 - state.jitter) * 0.2 +  // Lower jitter is better
+                    state.clockQuality * 0.2 +
+                    state.interfaceQuality * 0.15 +
+                    digitalFilterBonus[state.digitalFilter]
+                ) * 0.35;
+            }
+            
+            // Cable effects
+            const cableQuality = (
+                state.interconnectQuality * 0.3 +
+                state.speakerCableQuality * 0.35 +
+                state.cableLength * 0.15 +
+                state.shielding * 0.2
+            ) * 0.15;
+            
+            // Power quality
+            const powerQuality = (state.powerSupply + state.powerCable) / 2;
+            
+            // Signal Quality
+            state.signalQuality = Math.min(100, 
+                baseSource * 0.3 +
+                state.recordingQuality * 0.25 +
+                analogBonus +
+                digitalBonus +
+                state.ampQuality * 0.15 +
+                powerQuality * 0.1 +
+                cableQuality
+            );
+            
+            // Speaker performance
+            const driverQuality = (
+                state.tweeterQuality * 0.3 +
+                state.wooferQuality * 0.4 +
+                state.crossoverQuality * 0.3
+            );
+            
+            const speakerDesign = (
+                state.speakerQuality * 0.4 +
+                driverQuality * 0.3 +
+                state.cabinetBracing * 0.15 +
+                state.driverBreakIn * 0.1 +
+                cabinetBonus[state.cabinetType] +
+                state.standsQuality * 0.05
+            );
+            
+            // Amp-speaker matching
+            const powerMatch = Math.abs(state.sensitivity - 87) < 5 ? 10 : 0;
+            const matchBonus = (state.impedanceMatch + powerMatch) * 0.1;
+            
+            // Room treatment
+            const treatmentQuality = (
+                state.bassTraps * 0.3 +
+                state.firstReflections * 0.35 +
+                state.diffusion * 0.2 +
+                state.damping * 0.15
+            );
+            
+            // Room dimensions (golden ratio is ideal around 1:1.6:2.6)
+            const roomPenalty = Math.abs(state.dimensionRatio - 70) * 0.15;
+            const sizePenalty = Math.abs(state.roomSize - 50) * 0.2;
+            
+            // Acoustic Quality (room and placement)
+            state.acousticQuality = Math.max(0, Math.min(100,
+                treatmentQuality * 0.35 +
+                state.materialQuality * 0.15 +
+                floorBonus[state.floorType] +
+                state.furniture * 0.1 +
+                state.placement * 0.25 +
+                state.frontWallDistance * 0.1 +
+                state.sideWallDistance * 0.1 +
+                state.ceilingHeight * 0.05 +
+                (100 - state.reverbTime) * 0.1 -  // Too much reverb is bad
+                roomPenalty - sizePenalty
+            ));
+            
+            // Imaging (stereo separation and soundstage)
+            const toeInOptimal = Math.abs(state.toeIn - 25) < 10 ? 15 : 0;
+            const rakeOptimal = Math.abs(state.rakeAngle - 50) < 15 ? 10 : 0;
+            
+            state.imaging = Math.min(100,
+                state.placement * 0.3 +
+                toeInOptimal +
+                rakeOptimal +
+                state.listeningPosition * 0.25 +
+                state.acousticQuality * 0.15 +
+                speakerDesign * 0.15 +
+                state.frontWallDistance * 0.05
+            );
+            
+            // Detail Retrieval
+            state.detail = Math.min(100,
+                state.signalQuality * 0.35 +
+                speakerDesign * 0.35 +
+                state.acousticQuality * 0.15 +
+                state.noiseFloor * 0.15
+            );
+            
+            // Psychoacoustic factors
+            const fletcherMunson = Math.abs(state.volumeLevel - 75) < 10 ? 10 : 0;  // Optimal volume
+            const psychoBonus = (
+                state.familiarity * 0.15 +
+                state.listenerExperience * 0.2 +
+                state.hearingAcuity * 0.25 +
+                listeningModeBonus[state.listeningMode] +
+                state.mood * 0.15 +
+                (100 - state.expectationBias) * 0.1 +  // Less bias is better
+                state.seatingComfort * 0.1 +
+                fletcherMunson
+            ) * 0.15;
+            
+            // Environmental factors
+            const envBonus = (
+                state.noiseFloor * 0.4 +
+                state.temperature * 0.3 +
+                state.humidity * 0.3
+            ) * 0.05;
+            
+            // Overall experience
+            state.overall = Math.max(0, Math.min(100,
+                state.signalQuality * 0.22 +
+                state.acousticQuality * 0.22 +
+                state.imaging * 0.18 +
+                state.detail * 0.18 +
+                state.preference * 0.08 +
+                psychoBonus +
+                envBonus +
+                matchBonus
+            ));
+        }
+
+        function update() {
+            if (!playing) return;
+            
+            // Natural degradation over time
+            state.stylusCondition = Math.max(0, state.stylusCondition - 0.005); // Stylus wears
+            state.recordCondition = Math.max(40, state.recordCondition - 0.002); // Records degrade
+            state.powerSupply = Math.max(50, state.powerSupply - 0.002); // Caps degrade
+            state.driverBreakIn = Math.min(100, state.driverBreakIn + 0.001); // Drivers improve with use
+            state.cableLength = Math.max(50, state.cableLength - 0.001); // Oxidation
+            
+            // Environmental drift
+            state.humidity += (Math.random() - 0.5) * 0.1;
+            state.humidity = Math.max(30, Math.min(90, state.humidity));
+            
+            state.temperature += (Math.random() - 0.5) * 0.05;
+            state.temperature = Math.max(50, Math.min(90, state.temperature));
+            
+            calculate();
+            
+            ['signalQuality', 'acousticQuality', 'imaging', 'detail'].forEach(key => {
+                history[key].push(state[key]);
+                if (history[key].length > MAX) history[key].shift();
+            });
+            
+            updateUI();
+            draw();
+        }
+
+        function draw() {
+            const W = w / 2;
+            const H = h / 2;
+            
+            ctx.fillStyle = '#fff';
+            ctx.fillRect(0, 0, W, H);
+            
+            // Grid
+            ctx.strokeStyle = '#f0f0f0';
+            ctx.lineWidth = 1;
+            for (let i = 1; i < 4; i++) {
+                ctx.beginPath();
+                ctx.moveTo(0, H * i / 4);
+                ctx.lineTo(W, H * i / 4);
+                ctx.stroke();
+            }
+            
+            // Lines
+            Object.keys(colors).forEach(key => {
+                const data = history[key];
+                if (data.length < 2) return;
+                
+                ctx.strokeStyle = colors[key];
+                ctx.lineWidth = 1.5;
+                ctx.beginPath();
+                
+                data.forEach((val, i) => {
+                    const x = (i / MAX) * W;
+                    const y = H - (val / 100) * H;
+                    i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+                });
+                
+                ctx.stroke();
+            });
+        }
+
+        function updateUI() {
+            document.querySelectorAll('[data-var]').forEach(el => {
+                const varName = el.dataset.var;
+                if (el.tagName === 'INPUT') {
+                    el.value = state[varName];
+                } else if (!el.dataset.select) {
+                    el.textContent = Math.round(state[varName]);
+                }
+            });
+            
+            document.querySelectorAll('[data-output]').forEach(el => {
+                el.textContent = Math.round(state[el.dataset.output]);
+            });
+            
+            document.querySelectorAll('[data-legend]').forEach(el => {
+                el.textContent = Math.round(state[el.dataset.legend]);
+            });
+            
+            document.getElementById('overall-value').textContent = Math.round(state.overall);
+        }
+
+        // Controls
+        document.querySelectorAll('input[type="range"]').forEach(slider => {
+            const varName = slider.dataset.var;
+            
+            // Add community stats markers dynamically
+            const container = slider.parentElement;
+            if (container && communityStats[varName] && !container.classList.contains('slider-container')) {
+                // Wrap slider in container if not already wrapped
+                const sliderContainer = document.createElement('div');
+                sliderContainer.className = 'slider-container';
+                
+                const sliderBg = document.createElement('div');
+                sliderBg.className = 'slider-bg';
+                
+                const distribution = document.createElement('div');
+                distribution.className = 'distribution';
+                sliderBg.appendChild(distribution);
+                
+                const stats = communityStats[varName];
+                const min = parseFloat(slider.min);
+                const max = parseFloat(slider.max);
+                
+                // Calculate positions (percentage)
+                const modePos = ((stats.mode - min) / (max - min)) * 100;
+                const medianPos = ((stats.median - min) / (max - min)) * 100;
+                const meanPos = ((stats.mean - min) / (max - min)) * 100;
+                
+                // Create markers
+                const createMarker = (type, pos, label) => {
+                    const marker = document.createElement('div');
+                    marker.className = `stat-marker ${type}`;
+                    marker.style.left = pos + '%';
+                    const labelDiv = document.createElement('div');
+                    labelDiv.className = 'stat-label';
+                    labelDiv.style[type === 'mean' ? 'bottom' : 'top'] = type === 'mean' ? '-10px' : '-12px';
+                    labelDiv.style.left = '-10px';
+                    labelDiv.textContent = label;
+                    marker.appendChild(labelDiv);
+                    return marker;
+                };
+                
+                sliderBg.appendChild(createMarker('mode', modePos, 'MODE'));
+                sliderBg.appendChild(createMarker('median', medianPos, 'MED'));
+                sliderBg.appendChild(createMarker('mean', meanPos, 'AVG'));
+                
+                container.insertBefore(sliderContainer, slider);
+                sliderContainer.appendChild(sliderBg);
+                sliderContainer.appendChild(slider);
+            }
+            
+            slider.addEventListener('input', (e) => {
+                state[e.target.dataset.var] = parseFloat(e.target.value);
+                calculate();
+                updateUI();
+            });
+        });
+
+        document.querySelectorAll('select').forEach(select => {
+            select.addEventListener('change', (e) => {
+                state[e.target.dataset.var] = e.target.value;
+                calculate();
+                updateUI();
+            });
+        });
+
+        document.getElementById('play-btn').addEventListener('click', () => {
+            playing = !playing;
+            document.getElementById('play-btn').textContent = playing ? 'RUNNING' : 'PAUSED';
+            document.getElementById('play-btn').classList.toggle('active', playing);
+        });
+
+        document.getElementById('reset-btn').addEventListener('click', () => {
+            location.reload();
+        });
+
+        setInterval(update, 50);
+        
+        calculate();
+        updateUI();
+        draw();
+    </script>
+</body>
+</html>
